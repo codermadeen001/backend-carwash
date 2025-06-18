@@ -12,14 +12,12 @@ RUN a2enmod rewrite
 # Set working directory to Laravel root
 WORKDIR /var/www/html
 
-# Copy only composer files first for better caching
-COPY composer.json composer.lock ./
+# Copy only minimum required files for composer first
+COPY composer.json composer.lock artisan ./
 
-# Install Composer
+# Install Composer (without running scripts yet)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --no-scripts --no-autoloader --optimize-autoloader
 
 # Copy the rest of the application
 COPY . .
@@ -55,15 +53,18 @@ ENV MAIL_FROM_NAME="Auto Clean"
 ENV JWT_SECRET=JYXM3dcQQmmXZhONKMpQ9oLjK65LENpRKyJ3OpjYHVhLgZWebyoE3iG7Wu9Txsau
 ENV CLOUDINARY_URL=cloudinary://769447669581899:SMXcoOapJt4KElCoVzbCJ_SzIqM@dadcnkqbg
 
-# Set correct permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+# Set correct permissions (non-root user)
+RUN useradd -u 1000 -d /var/www/html -s /bin/bash www-user && \
+    chown -R www-user:www-user /var/www/html && \
+    chmod -R 775 storage bootstrap/cache
 
-# Clear configuration cache and optimize
-RUN php artisan config:clear && \
-    php artisan cache:clear && \
-    php artisan view:clear
+# Run composer scripts as non-root user
+USER www-user
+RUN composer dump-autoload --optimize && \
+    composer run-script post-autoload-dump
+
+# Switch back to root for Apache
+USER root
 
 # Update Apache DocumentRoot to point to Laravel's /public
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
