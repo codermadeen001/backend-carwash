@@ -426,10 +426,20 @@ $pass="1";//$request->password;//"#Valeria@2025";
     
     public function google_login(Request $request)
     {
+
+
+
         
-       // $credentials=$request->only("userName", "userEmail", "userImgUrl");
+
+
+         $credentials=$request->only("userName", "userEmail", "userImgUrl");
          $user=AppUser::where("email", $credentials["userEmail"])->first();
          //return response()->json(["success"=>false,"message"=>"Account is suspended" ]);
+
+         
+        // return response()->json(["success" => false, "message" => $credentials["userEmail"]]);
+
+
 
       if($user){
         
@@ -446,7 +456,9 @@ $pass="1";//$request->password;//"#Valeria@2025";
 
             
             return response()->json(["success"=>true,"isAdmin"=>false,"message"=>"Login successful",  "token" =>  $token, "role"=>$user->role]); 
-      }else{
+      }
+      
+      else{
             $password= Str::random(32);
             $user =AppUser::create([
                 "name" => $credentials["userName"],
@@ -491,6 +503,8 @@ $pass="1";//$request->password;//"#Valeria@2025";
                 $token = $user->createToken('authToken')->plainTextToken;
             return response()->json(["success" => true, "message" => "Account created successfully",'token'=>$token, "role"=>$user->role]);
        } 
+
+       
           
     }
 
