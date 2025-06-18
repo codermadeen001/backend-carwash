@@ -4,29 +4,48 @@ FROM php:8.2-apache
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git unzip libzip-dev libpq-dev libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo pdo_pgsql zip gd
+    && docker-php-ext-install pdo pdo_pgsql zip gd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
+# Enable Apache mod_rewrite and set ServerName
+RUN a2enmod rewrite && \
+    echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# Set working directory to Laravel root
+# Configure Apache to allow .htaccess overrides
+RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
+
+# Create application user and set up directory structure
+RUN useradd -r -u 1000 -g www-data -d /var/www/html -s /bin/bash laravel && \
+    mkdir -p /var/www/html && \
+    chown -R laravel:www-data /var/www/html
+
+# Set working directory
 WORKDIR /var/www/html
 
-# Copy only minimum required files for composer first
-COPY composer.json composer.lock artisan ./
+# Create storage directories with correct permissions early
+RUN mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache && \
+    chown -R laravel:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache && \
+    chmod -R 777 storage/framework/sessions storage/framework/views
 
-# Install Composer (without running scripts yet)
+# Copy only minimum required files for composer first
+COPY --chown=laravel:www-data composer.json composer.lock artisan ./
+
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Install dependencies (without scripts)
+USER laravel
 RUN composer install --no-dev --no-scripts --no-autoloader --optimize-autoloader
 
 # Copy the rest of the application
-COPY . .
+COPY --chown=laravel:www-data . .
 
-# Set all environment variables directly
-ENV APP_NAME=Laravel
+# Set all environment variables
+ENV APP_NAME="Laravel"
 ENV APP_ENV=production
 ENV APP_KEY=base64:2sYKezv85mSU5iU/q1Ei2bQDXfQjVYjSdvdGwqys2OI=
-ENV APP_DEBUG=true
+ENV APP_DEBUG=false
 ENV APP_URL=https://backend-carwash-mx6p.onrender.com
 ENV LOG_CHANNEL=stderr
 ENV LOG_DEPRECATIONS_CHANNEL=null
@@ -53,21 +72,29 @@ ENV MAIL_FROM_NAME="Auto Clean"
 ENV JWT_SECRET=JYXM3dcQQmmXZhONKMpQ9oLjK65LENpRKyJ3OpjYHVhLgZWebyoE3iG7Wu9Txsau
 ENV CLOUDINARY_URL=cloudinary://769447669581899:SMXcoOapJt4KElCoVzbCJ_SzIqM@dadcnkqbg
 
-# Set correct permissions (non-root user)
-RUN useradd -u 1000 -d /var/www/html -s /bin/bash www-user && \
-    chown -R www-user:www-user /var/www/html && \
-    chmod -R 775 storage bootstrap/cache
-
-# Run composer scripts as non-root user
-USER www-user
+# Complete Composer installation
 RUN composer dump-autoload --optimize && \
     composer run-script post-autoload-dump
 
-# Switch back to root for Apache
-USER root
+# Optimize Laravel
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
 
 # Update Apache DocumentRoot to point to Laravel's /public
-RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+USER root
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf && \
+    sed -i 's|<Directory /var/www/html>|<Directory /var/www/html/public>|g' /etc/apache2/sites-available/000-default.conf
+
+# Final permission check and fix
+RUN chown -R laravel:www-data /var/www/html && \
+    find /var/www/html -type f -exec chmod 664 {} \; && \
+    find /var/www/html -type d -exec chmod 775 {} \; && \
+    chmod -R 777 storage/framework/views
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost/ || exit 1
 
 # Expose port 80
 EXPOSE 80
