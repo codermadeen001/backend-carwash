@@ -12,7 +12,16 @@ RUN a2enmod rewrite
 # Set working directory to Laravel root
 WORKDIR /var/www/html
 
-# Copy Laravel project files
+# Copy only composer files first for better caching
+COPY composer.json composer.lock ./
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Install Laravel dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Copy the rest of the application
 COPY . .
 
 # Set all environment variables directly
@@ -51,14 +60,10 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# Generate application key (will use existing APP_KEY from above)
-RUN php artisan key:generate --force
+# Clear configuration cache and optimize
+RUN php artisan config:clear && \
+    php artisan cache:clear && \
+    php artisan view:clear
 
 # Update Apache DocumentRoot to point to Laravel's /public
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
