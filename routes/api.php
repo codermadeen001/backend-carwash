@@ -24,6 +24,8 @@ Route::post('/google/login', [AppUserController::class, 'google_login']);
 Route::get('/get-all-users', [AppUserController::class, 'getClients']);
 Route::get('/get-all-washers', [AppUserController::class, 'getwashers']);
 
+Route::get('/a', [AppUserController::class, 'A']);
+
 
 Route::post('/updateStatus', [AppUserController::class, 'updateStatus']);
 Route::POST('/deleteUser', [AppUserController::class, 'deleteUser']);

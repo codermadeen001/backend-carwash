@@ -23,7 +23,7 @@ class AppUserController extends Controller
     
     public function account_creation(Request $request)
     {
-        $user=AppUser::where("email", $request->email)->first();
+     $user=AppUser::where("email", $request->email)->first();
         if($user){
             return response()->json(["success" => false, "message" => "Account exists!"]);
         }
@@ -38,7 +38,7 @@ class AppUserController extends Controller
         }
 
         $role=null;
-        if($request->email=="admin@gmail.com"){
+        if($email=="admin@gmail.com"){
             $role="admin";
         }else{
              $role="client";
@@ -46,8 +46,8 @@ class AppUserController extends Controller
 
        
         $save=AppUser::create([
-                "email" => $request->email,
-                'password' => Hash::make($request->password),
+                "email" =>$email,//$request->email,
+                'password' =>Hash::make($pass),
                 'role'=>$role,
             ]);
 
@@ -198,21 +198,25 @@ public function client_creation(Request $request)
 }
 
 
-    
-   
+    /*
+   //#Valeria@2025
 
     public function login(Request $request)
     {
-        $credentials=$request->only("email","password");
+      //  $credentials=$request->only("email","password");
+       $email="inno@gmail.com";//$request->email;
+$pass="1";//$request->password;//"#Valeria@2025";
     
-            $user=AppUser::where("email", $credentials["email"])->first();
+            $user=AppUser::where("email", $email)->first();
+           // $user=AppUser::where("email", "admin@gmail.com")->first();
             if(!$user){
                 return response()->json(["success"=>false, "message"=>"Invalid credentials!"]);
             }
             if ($user->status) {
                return response()->json(["success" => false, "message" => "Account is suspended!"]);
             }
-            $auth=($user && Hash::check($credentials["password"], $user->password));
+            $auth=($user && Hash::check($pass, $user->password));
+            //$auth=0;//($user && Hash::check("password", $user->password));
 
            if($auth){
                 $token = $user->createToken('authToken')->plainTextToken;
@@ -225,6 +229,36 @@ public function client_creation(Request $request)
             
 
     }
+*/
+
+
+    public function login(Request $request)
+    {
+        $credentials=$request->only("email","password");
+    
+            $user=AppUser::where("email", $credentials["email"])->first();
+           // $user=AppUser::where("email", "admin@gmail.com")->first();
+            if(!$user){
+                return response()->json(["success"=>false, "message"=>"Invalid credentials!"]);
+            }
+            if ($user->status) {
+               return response()->json(["success" => false, "message" => "Account is suspended!"]);
+            }
+            $auth=($user && Hash::check($credentials["password"], $user->password));
+            //$auth=0;//($user && Hash::check("password", $user->password));
+
+           if($auth){
+                $token = $user->createToken('authToken')->plainTextToken;
+                return response()->json(["success"=>true,"token" => $token,"role"=>$user->role ]);
+            }else{
+                return response()->json(["success"=>false, "message"=>"Invalid credentials!"]);
+            }
+
+           
+            
+
+    }
+
 
 
 
@@ -276,11 +310,124 @@ public function client_creation(Request $request)
 
 
 
+
+
+
+
+
+
+
+  
+
+    
+    public function googe_login(Request $request)
+    {
+        /*
+        
+       // $credentials=$request->only("userName", "userEmail", "userImgUrl");
+         $user=AppUser::where("email", $credentials["userEmail"])->first();
+         //return response()->json(["success"=>false,"message"=>"Account is suspended" ]);
+   if($user){
+   
+        
+             if ($user->status) {
+                 return response()->json(["success" => false, "message" => "Account is suspended!"]);
+            }
+
+           if ($user->img_url == '' || $user->img_url == null) {
+               $user->img_url = $credentials["userImgUrl"];
+               $user->save();
+            }
+
+            $token = $user->createToken('authToken')->plainTextToken;
+
+            
+            return response()->json(["success"=>true,"isAdmin"=>false,"message"=>"Login successful",  "token" =>  $token, "role"=>$user->role]); 
+      }else{*/
+            $password= Str::random(32);
+            $user =AppUser::create([
+                "name" => "innoo",// $credentials["userName"],
+                "email" =>"test0",// $credentials["userEmail"],
+                "img_url" =>'hg',// $credentials["userImgUrl"],
+                'role'=>'client',
+                'password' => Hash::make($password),
+            ]);
+
+                $userEmail = "syeundainnocent@gmail.com";// $credentials["userEmail"];
+                $name="test";//$credentials["userName"];
+         
+                 // Email sending logic
+                 $fromEmail = 'syeundainnocent@gmail.com';  // Replace with your Gmail address
+                 $fromPassword =  "vwuergurzyjucjmc";  // Replace with your Gmail app password
+         
+                 $mail = new PHPMailer(true);
+         
+                 try {
+                    // SMTP configuration
+                    $mail->isSMTP();
+                    $mail->Host = 'smtp.gmail.com';   
+                    $mail->SMTPAuth = true;
+                    $mail->Username = $fromEmail;    
+                    $mail->Password = $fromPassword; 
+                    $mail->SMTPSecure = 'tls';     
+                    $mail->Port = 587;               
+        
+                    // Email settings
+                    $mail->setFrom($fromEmail, 'AutoClean');
+                    $mail->addAddress($userEmail);   // Recipient's email
+        
+                    $mail->Subject = ' Welcome to AutoClean System ';
+                    $mail->Body = 
+   "Greetings,\n\nYour account with AutoClean has been successfully created.\n\nThank you for choosing us,\n\n";
+
+                    $mail->send();
+                } catch (Exception $e) {
+                   
+                    return response()->json(["success" => false,  "message"=>"mail not send"]);
+                }
+                $token = $user->createToken('authToken')->plainTextToken;
+            return response()->json(["success" => true, "message" => "Account created successfully",'token'=>$token, "role"=>$user->role]);
+       //} 
+          
+    }
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     public function google_login(Request $request)
     {
         
-        $credentials=$request->only("userName", "userEmail", "userImgUrl");
+       // $credentials=$request->only("userName", "userEmail", "userImgUrl");
          $user=AppUser::where("email", $credentials["userEmail"])->first();
          //return response()->json(["success"=>false,"message"=>"Account is suspended" ]);
 
@@ -347,6 +494,8 @@ public function client_creation(Request $request)
           
     }
 
+
+    
 
     public function toggleStatus(Request $request)
 {
@@ -627,12 +776,18 @@ public function toggleAvailability(Request $request)
 
 
 
+    public function A(Request $request)
+{
+    $user = Auth::guard('sanctum')->user();
+     return response()->json([
     
+        'available' => $user
+    ]);
     
 }
 
 
-
+}
 
 
 
