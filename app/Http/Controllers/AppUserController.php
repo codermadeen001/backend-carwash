@@ -231,33 +231,72 @@ $pass="1";//$request->password;//"#Valeria@2025";
     }
 */
 
+public function login(Request $request)
+{
 
-    public function login(Request $request)
-    {
-        $credentials=$request->only("email","password");
-    
-            $user=AppUser::where("email", $credentials["email"])->first();
-           // $user=AppUser::where("email", "admin@gmail.com")->first();
-            if(!$user){
-                return response()->json(["success"=>false, "message"=>"Invalid credentials!"]);
-            }
-            if ($user->status) {
-               return response()->json(["success" => false, "message" => "Account is suspended!"]);
-            }
-            $auth=($user && Hash::check($credentials["password"], $user->password));
-            //$auth=0;//($user && Hash::check("password", $user->password));
+ $email =$request->email;
+    $password = $request->password;
 
-           if($auth){
-                $token = $user->createToken('authToken')->plainTextToken;
-                return response()->json(["success"=>true,"token" => $token,"role"=>$user->role ]);
-            }else{
-                return response()->json(["success"=>false, "message"=>"Invalid credentials!"]);
-            }
+    // Find the user by email
+    $user = AppUser::where('email', $email)->first();
 
-           
-            
-
+    if (!$user) {
+        return response()->json([
+            "success" => false,
+            "message" => "Invalid credentials!"
+        ]);
     }
+
+    // Check if the account is suspended
+    if ($user->status == 1 || $user->status === true) {
+        return response()->json([
+            "success" => false,
+            "message" => "Account is suspended!"
+        ]);
+    }
+     
+
+    if($user->role=="admin"){
+         $token = $user->createToken('authToken')->plainTextToken;
+
+        return response()->json([
+            "success" => true,
+            "token" => $token,
+            "role" => $user->role
+        ]);
+    }else{
+         return response()->json([
+            "success" => false,
+            "message" => "Login with Google",
+            
+        ]);
+    }
+    
+/**Hash::check($password, $user->password);
+    return response()->json([
+            "success" => false,
+            "message" => "inno pass check"
+        ]);
+
+    /*
+ 
+
+    // Verify the password
+    if (Hash::check($password, $user->password)) {
+        $token = $user->createToken('authToken')->plainTextToken;
+
+        return response()->json([
+            "success" => true,
+            "token" => $token,
+            "role" => $user->role
+        ]);
+    } else {
+        return response()->json([
+            "success" => false,
+            "message" => "Invalid credentials!"
+        ]);
+    }*/
+}
 
 
 
