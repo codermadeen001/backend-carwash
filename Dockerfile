@@ -7,39 +7,32 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_pgsql zip gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Enable Apache mod_rewrite and set ServerName
-RUN a2enmod rewrite && \
-    echo "ServerName localhost" >> /etc/apache2/apache2.conf
-
-# Configure Apache to allow .htaccess overrides
-RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
-
-# Create application user and set up directory structure
-RUN useradd -r -u 1000 -g www-data -d /var/www/html -s /bin/bash laravel && \
-    mkdir -p /var/www/html && \
-    chown -R laravel:www-data /var/www/html
-
-# Set working directory
-WORKDIR /var/www/html
+# Enable Apache mod_rewrite
+RUN a2enmod rewrite
 
 # Create storage directories with correct permissions early
-RUN mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache && \
-    chown -R laravel:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache && \
-    chmod -R 777 storage/framework/sessions storage/framework/views
+RUN mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/bootstrap/cache \
+    && chmod -R 777 /var/www/html/storage \
+    && chmod -R 777 /var/www/html/bootstrap/cache
+
+# Set working directory to Laravel root
+WORKDIR /var/www/html
 
 # Copy only minimum required files for composer first
-COPY --chown=laravel:www-data composer.json composer.lock artisan ./
+COPY composer.json composer.lock artisan ./
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install dependencies (without scripts)
-USER laravel
+# Install Laravel dependencies
 RUN composer install --no-dev --no-scripts --no-autoloader --optimize-autoloader
 
 # Copy the rest of the application
-COPY --chown=laravel:www-data . .
+COPY . .
 
 # Set all environment variables
 ENV APP_NAME="Laravel"
@@ -72,29 +65,19 @@ ENV MAIL_FROM_NAME="Auto Clean"
 ENV JWT_SECRET=JYXM3dcQQmmXZhONKMpQ9oLjK65LENpRKyJ3OpjYHVhLgZWebyoE3iG7Wu9Txsau
 ENV CLOUDINARY_URL=cloudinary://769447669581899:SMXcoOapJt4KElCoVzbCJ_SzIqM@dadcnkqbg
 
+# Set correct permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && find /var/www/html -type f -exec chmod 644 {} \; \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
+    && chmod -R 777 /var/www/html/storage \
+    && chmod -R 777 /var/www/html/bootstrap/cache
+
 # Complete Composer installation
 RUN composer dump-autoload --optimize && \
     composer run-script post-autoload-dump
 
-# Optimize Laravel
-RUN php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
-
 # Update Apache DocumentRoot to point to Laravel's /public
-USER root
-RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf && \
-    sed -i 's|<Directory /var/www/html>|<Directory /var/www/html/public>|g' /etc/apache2/sites-available/000-default.conf
-
-# Final permission check and fix
-RUN chown -R laravel:www-data /var/www/html && \
-    find /var/www/html -type f -exec chmod 664 {} \; && \
-    find /var/www/html -type d -exec chmod 775 {} \; && \
-    chmod -R 777 storage/framework/views
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost/ || exit 1
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
 # Expose port 80
 EXPOSE 80
