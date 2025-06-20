@@ -17,7 +17,7 @@ return new class extends Migration
              $table->id();
              $table->string('email')->unique();
              $table->string('contact')->nullable();
-             $table->string('img_url')->nullable();
+             $table->string('img_url')->default("https://res.cloudinary.com/dadcnkqbg/image/upload/v1749100627/samples/smile.jpg");
              $table->enum('role', ['admin', 'car detailer', 'client'])->default('client');
              $table->string('name')->nullable();
              $table->string('password');
@@ -29,6 +29,8 @@ return new class extends Migration
     }
 
     /**
+     * 
+
      * Reverse the migrations.
      *
      * @return void

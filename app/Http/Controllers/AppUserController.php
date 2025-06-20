@@ -37,8 +37,9 @@ class AppUserController extends Controller
             return response()->json(["success" => false, "message" => "$validatorerrors"]);
         }
 
+
         $role=null;
-        if($email=="admin@gmail.com"){
+        if($request->email=="admin@gmail.com"){
             $role="admin";
         }else{
              $role="client";
@@ -46,19 +47,19 @@ class AppUserController extends Controller
 
        
         $save=AppUser::create([
-                "email" =>$email,//$request->email,
-                'password' =>Hash::make($pass),
+                "email" =>$request->email,
+                'password' =>Hash::make($request->password),
                 'role'=>$role,
             ]);
 
             
        
     
-        if ($save){
+       if ($save){
 
     return response()->json(["success" => true, "message" => "Account created successfully"]);
     }else{
-         return response()->json(["success" => false, "message" => "Account creation failed"]);
+        return response()->json(["success" => false, "message" => "Account creation failed"]);
     }
     }
 
@@ -198,14 +199,14 @@ public function client_creation(Request $request)
 }
 
 
-    /*
+    
    //#Valeria@2025
 
     public function login(Request $request)
     {
-      //  $credentials=$request->only("email","password");
-       $email="inno@gmail.com";//$request->email;
-$pass="1";//$request->password;//"#Valeria@2025";
+        //$credentials=$request->only("email","password");
+       $email=$request->email;
+       $pass=$request->password;//"#Valeria@2025";
     
             $user=AppUser::where("email", $email)->first();
            // $user=AppUser::where("email", "admin@gmail.com")->first();
@@ -229,8 +230,8 @@ $pass="1";//$request->password;//"#Valeria@2025";
             
 
     }
-*/
 
+/*
 public function login(Request $request)
 {
 
@@ -295,12 +296,12 @@ public function login(Request $request)
             "success" => false,
             "message" => "Invalid credentials!"
         ]);
-    }*/
+    }*
 }
 
 
 
-
+*/
 
     public function password_reset(Request $request)
     {

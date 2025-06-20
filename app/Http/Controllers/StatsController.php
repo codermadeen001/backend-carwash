@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AppUser;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\WasherRating;
 
@@ -214,6 +215,163 @@ public function washer_Stats()
 public function bookingstats(){
     //return count of active bookings, cancelled bookings, completed, and admin waalet balance fisr to hit whee role is admni akll inone json payload
 }
+
+
+    public function getReportData()
+    {
+        try {
+            // 1. Fetch KPI data
+            $walletBalance = DB::table('app_users')
+                ->where('role', 'admin')
+                ->sum('wallet');
+
+            $totalBarbers = DB::table('app_users')
+                ->where('role', 'car detailer')
+                ->count();
+
+            $totalClients = DB::table('app_users')
+                ->where('role', 'client')
+                ->count();
+
+            $totalAppointments = DB::table('bookings')
+                ->where('status', '!=', 'cancelled')
+                ->count();
+
+            $totalServices = DB::table('services')
+                ->count();
+
+            $totalWashingPoints = DB::table('washing_points')
+                ->count();
+
+            $todayDate = Carbon::today()->toDateString();
+            $todaysBookings = DB::table('bookings')
+                ->whereDate('created_at', $todayDate)
+                ->count();
+
+            // 2. Get barber status breakdown
+            $barberStatus = DB::table('app_users')
+                ->where('role', 'car detailer')
+                ->selectRaw('
+                    SUM(CASE WHEN availability = true AND status = false THEN 1 ELSE 0 END) as active,
+                    SUM(CASE WHEN availability = false  THEN 1 ELSE 0 END) as offline,
+                    SUM(CASE WHEN status = true THEN 1 ELSE 0 END) as suspended
+                ')
+                ->first();
+
+                /**
+                 * 
+                 *  // 2. Get barber status breakdown
+                 */
+
+            // 3. Generate bookings trend for last 7 days
+            $bookingsTrendData = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $date = Carbon::today()->subDays($i);
+                $formattedDate = $date->toDateString();
+                $dayName = $date->format('D');
+
+                $dailyBookings = DB::table('bookings')
+                    ->whereDate('created_at', $formattedDate)
+                    ->count();
+
+                $bookingsTrendData[$dayName] = $dailyBookings;
+            }
+
+            // 4. Get popular services
+            $popularServicesQuery = DB::table('bookings')
+                ->join('services', 'bookings.service_id', '=', 'services.id')
+                ->select('services.package_type', DB::raw('COUNT(bookings.id) as count'))
+                ->groupBy('services.package_type')
+                ->orderByDesc('count')
+                ->limit(9)
+                ->get();
+
+            $popularServices = [];
+            foreach ($popularServicesQuery as $service) {
+                $popularServices[$service->package_type] = $service->count;
+            }
+
+            // 5. Get barber popularity
+            $barberPopularityQuery = DB::table('bookings')
+                ->join('app_users', 'bookings.washer_id', '=', 'app_users.id')
+                ->select('app_users.name', DB::raw('COUNT(bookings.id) as count'))
+                ->groupBy('bookings.washer_id', 'app_users.name')
+                ->orderByDesc('count')
+                ->limit(5)
+                ->get();
+
+            $barberPopularity = [];
+            foreach ($barberPopularityQuery as $barber) {
+                $nameParts = explode(' ', $barber->name);
+                $formattedName = count($nameParts) > 1 
+                    ? $nameParts[0] . ' ' . substr($nameParts[1], 0, 1) . '.' 
+                    : $nameParts[0];
+
+                $barberPopularity[$formattedName] = $barber->count;
+            }
+
+            // 6. Get loyal clients (return max 3 only if more than 2 exist)
+            $loyalClientsQuery = DB::table('bookings')
+                ->join('app_users', 'bookings.client_id', '=', 'app_users.id')
+                ->select(
+                    'app_users.name',
+                    DB::raw('COUNT(bookings.id) as visits'),
+                    DB::raw('SUM(bookings.price) as spent')
+                )
+                ->groupBy('bookings.client_id', 'app_users.name')
+                ->orderByDesc('visits')
+                ->get();
+
+            $loyalClients = $loyalClientsQuery->map(function ($client) {
+                return [
+                    'name' => $client->name,
+                    'visits' => $client->visits,
+                    'spent' => (float) $client->spent
+                ];
+            });
+
+            if ($loyalClients->count() > 2) {
+                $loyalClients = $loyalClients->take(3);
+            }
+
+            // 7. Final payload
+            $payload = [
+                'kpis' => [
+                    'walletBalance' => (float) $walletBalance,
+                    'totalBarbers' => $totalBarbers,
+                    'totalClients' => $totalClients,
+                    'totalAppointments' => $totalAppointments,
+                    'totalServices' => $totalServices,
+                    'todaysBookings' => $todaysBookings,
+                    'totalWashingPoints' => $totalWashingPoints
+                ],
+                'barberStatus' => [
+                    'active' => $barberStatus->active ?? 0,
+                    'offline' => $barberStatus->offline ?? 0,
+                    'suspended' => $barberStatus->suspended ?? 0
+                ],
+                'bookingsTrend' => [
+                    'data' => $bookingsTrendData
+                ],
+                'popularServices' => $popularServices,
+                'barberPopularity' => $barberPopularity,
+                'loyalClients' => $loyalClients
+            ];
+
+            return response()->json($payload);
+
+        } catch (\Exception $error) {
+            \Log::error('Error fetching client statistics:', ['error' => $error]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch client statistics',
+                'error' => config('app.debug') ? $error->getMessage() : null
+            ], 500);
+        }
+    }
+
+
 
 }
 

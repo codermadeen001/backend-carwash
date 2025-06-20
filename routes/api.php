@@ -168,6 +168,9 @@ Route::get('/washer-stats', [StatsController::class, 'washerStats']);
 Route::get('/rental-stats', [StatsController::class, 'rentalStats']);
 Route::middleware('auth:sanctum')->get('/user-stats', [StatsController::class, 'userStats']);
 Route::middleware('auth:sanctum')->get('/washer/dashboard/stats', [StatsController::class, 'washer_Stats']);
+Route::get('/report-data', [StatsController::class, 'getReportData']);
+
+
 /*
 
 

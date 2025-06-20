@@ -336,7 +336,7 @@ class BookingController extends Controller
     {
         try {
             $htmlTemplate = $this->getEmailTemplate($emailData);
-            $subject = 'Car Wash Service Confirmation - Receipt #' . $emailData['receipt'];
+            $subject = 'Car Wash Service Confirmation - Receipt ' . $emailData['receipt'];
 
             Mail::send([], [], function ($message) use ($email, $htmlTemplate, $subject) {
                 $message->to($email)
@@ -518,6 +518,13 @@ class BookingController extends Controller
 
         return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
+
+
+
+
+
+
+
 
 
 
